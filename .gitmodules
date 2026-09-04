@@ -1,0 +1,3 @@
+[submodule "xposedutil"]
+	path = xposedutil
+	url = https://github.com/null-dev/xposedutil.git
