@@ -33,7 +33,23 @@ jobs:
       env:
         SIGNING_KEY: ${{ secrets.SIGNING_KEY }}
       run: |
-        echo "$SIGNING_KEY" | base64 -d > release.keystore
+        if [ -z "$SIGNING_KEY" ]; then
+          echo "❌ 错误: Secrets.SIGNING_KEY 为空！"
+          exit 1
+        fi
+
+        # 将环境变量安全写入临时 base64 文本文件，再进行解码
+        printf "%s" "$SIGNING_KEY" | tr -d '\r\n ' > keystore.b64
+        base64 -d keystore.b64 > release.keystore
+
+        KEYSTORE_SIZE=$(stat -c%s release.keystore 2>/dev/null || stat -f%z release.keystore)
+        echo "Decoded keystore size: $KEYSTORE_SIZE bytes"
+        echo "Keystore MD5: $(md5sum release.keystore | awk '{print $1}')"
+
+        if [ "$KEYSTORE_SIZE" -lt 300 ]; then
+          echo "❌ 错误: 解密后的文件太小 ($KEYSTORE_SIZE bytes)，说明 Base64 依然不完整！"
+          exit 1
+        fi
 
     # 2. 安全签名：通过管道传参给 apksigner，防止密码暴露在进程参数列表(ps)中
     - name: Sign APK
