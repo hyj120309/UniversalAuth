@@ -116,7 +116,7 @@ public class Module implements IXposedHookLoadPackage {
         Field mStatusBarStateControllerField = asAccessible(kumClazz.getDeclaredField("mStatusBarStateController"));
         Field mKeyguardIsVisibleField;
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            // Android 14
+            // Android 13 release
             mKeyguardIsVisibleField = asAccessible(kumClazz.getDeclaredField("mKeyguardShowing"));
         } else {
             mKeyguardIsVisibleField = asAccessible(kumClazz.getDeclaredField("mKeyguardIsVisible"));
@@ -125,12 +125,22 @@ public class Module implements IXposedHookLoadPackage {
         Field mGoingToSleepField = asAccessible(kumClazz.getDeclaredField("mGoingToSleep"));
         Field mContextField = asAccessible(kumClazz.getDeclaredField("mContext"));
 
+        // Class<?> sbscClazz;
+        // if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+        //    sbscClazz = lpparam.classLoader.loadClass(STATUS_BAR_STATE_CONTROLLER_IMPL_CLASS);
+        // } else {
+        //     sbscClazz = lpparam.classLoader.loadClass(STATUS_BAR_STATE_CONTROLLER_CLASS);
+        // }
+
         Class<?> sbscClazz;
-        if (Build.VERSION.SDK_INT >= VERSION_CODES.TIRAMISU) {
-            sbscClazz = lpparam.classLoader.loadClass(STATUS_BAR_STATE_CONTROLLER_IMPL_CLASS);
-        } else {
-            sbscClazz = lpparam.classLoader.loadClass(STATUS_BAR_STATE_CONTROLLER_CLASS);
-        }
+            try {
+                // 优先加载具体实现类（Android 13/14+）
+                sbscClazz = lpparam.classLoader.loadClass(STATUS_BAR_STATE_CONTROLLER_IMPL_CLASS);
+            } catch (ClassNotFoundException e) {
+                // 回退加载旧版接口/类（Android 12 及以下）
+                sbscClazz = lpparam.classLoader.loadClass(STATUS_BAR_STATE_CONTROLLER_CLASS);
+            }
+
         Method getStateMethod = asAccessible(sbscClazz.getDeclaredMethod("getState"));
 
         XC_MethodHook hook = new XC_MethodHook() {
