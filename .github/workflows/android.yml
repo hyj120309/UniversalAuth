@@ -2,25 +2,61 @@ name: Android CI
 
 on:
   workflow_dispatch:
+
 jobs:
   build:
-
     runs-on: ubuntu-latest
 
     steps:
     - uses: actions/checkout@v4
-    - name: set up JDK 11
+
+    - name: set up JDK 17
       uses: actions/setup-java@v4
       with:
-        java-version: '11'
+        java-version: '17'
         distribution: 'temurin'
         cache: gradle
 
     - name: Grant execute permission for gradlew
       run: chmod +x gradlew
-    - name: Build with Gradle
-      run: ./gradlew build
-    - name: Upload files
+
+    - name: Build Release APK
+      run: ./gradlew assembleRelease
+
+    # 1. 安全解密：通过环境变量将 Base64 写入文件并解码，避免 Shell 参数截断
+    - name: Decode Keystore
+      env:
+        SIGNING_KEY: ${{ secrets.SIGNING_KEY }}
+      run: |
+        echo "$SIGNING_KEY" | base64 -d > release.keystore
+
+    # 2. 安全签名：通过管道传参给 apksigner，防止密码暴露在进程参数列表(ps)中
+    - name: Sign APK
+      env:
+        ALIAS: ${{ secrets.KEY_ALIAS }}
+        KEYSTORE_PASS: ${{ secrets.KEYSTORE_PASSWORD }}
+        KEY_PASS: ${{ secrets.KEY_PASSWORD }}
+      run: |
+        APKSIGNER=$(find $ANDROID_HOME/build-tools/ -name apksigner | sort -V | tail -n 1)
+        
+        for apk in app/build/outputs/apk/release/*.apk; do
+          # 过滤掉已签名的文件
+          if [[ -f "$apk" && "$apk" != *-signed.apk ]]; then
+            echo "Signing $apk ..."
+            
+            # 使用 --ks-pass pass:env:VAR 形式，让 apksigner 直接从环境变量读取密码，不在命令行暴露明文
+            $APKSIGNER sign \
+              --ks release.keystore \
+              --ks-key-alias "$ALIAS" \
+              --ks-pass env:KEYSTORE_PASS \
+              --key-pass env:KEY_PASS \
+              --out "${apk%.apk}-signed.apk" \
+              "$apk"
+          fi
+        done
+
+    - name: Upload Signed APK
       uses: actions/upload-artifact@v4
-      path: '*/outputs/apk/*'
-      
+      with:
+        name: signed-apk
+        path: '**/outputs/apk/release/*-signed.apk'
