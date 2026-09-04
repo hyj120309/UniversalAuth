@@ -60,7 +60,7 @@ public class Module implements IXposedHookLoadPackage {
             isUserInLockdownMethod = getIsUserInLockdownMethod(kumClazz);
 
             try {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                     Class<?> statusBarClass = lpparam.classLoader.loadClass(CENTRAL_SURFACES_IMPL_CLASS);
                     hookStatusBar(lpparam, statusBarClass);
                 } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S_V2) {
@@ -195,7 +195,7 @@ public class Module implements IXposedHookLoadPackage {
     private void hookStatusBar(Class<?> statusBarClass, ClassLoader classLoader, XC_MethodHook.MethodHookParam param) throws Throwable {
         Object statusBar = param.thisObject;
         Class<?> systemUiClass;
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             // >= Android 14: Same as SystemUi
             systemUiClass = classLoader.loadClass(CENTRAL_SURFACES_IMPL_CLASS);
         } else if (Build.VERSION.SDK_INT > Build.VERSION_CODES.S_V2) {
