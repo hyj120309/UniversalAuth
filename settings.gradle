@@ -25,4 +25,8 @@ include ':libuniversalauth'
 include ':libuniversalauth-xposed'
 include ':universalauth-xposed'
 //includeBuild 'gplayapi'
-includeBuild 'xposedutil'
+includeBuild('xposedutil') {
+    dependencySubstitution {
+        substitute module('ax.nd.xposedutil:xposedutil') using project(':library')
+    }
+}
