@@ -42,26 +42,46 @@ jobs:
         KEYSTORE_PASS: ${{ secrets.KEYSTORE_PASSWORD }}
         KEY_PASS: ${{ secrets.KEY_PASSWORD }}
       run: |
+        # 寻找系统的 apksigner
         APKSIGNER=$(find $ANDROID_HOME/build-tools/ -name apksigner | sort -V | tail -n 1)
-        
-        for apk in app/build/outputs/apk/release/*.apk; do
-          # 过滤掉已签名的文件
-          if [[ -f "$apk" && "$apk" != *-signed.apk ]]; then
-            echo "Signing $apk ..."
-            
-            # 使用 --ks-pass pass:env:VAR 形式，让 apksigner 直接从环境变量读取密码，不在命令行暴露明文
-            $APKSIGNER sign \
-              --ks release.keystore \
-              --ks-key-alias "$ALIAS" \
-              --ks-pass env:KEYSTORE_PASS \
-              --key-pass env:KEY_PASS \
-              --out "${apk%.apk}-signed.apk" \
-              "$apk"
+        echo "Using apksigner at: $APKSIGNER"
+
+        # 打印当前所有生成的 apk，便于排查
+        echo "=== 找到的原始 APK 文件 ==="
+        find . -type f -name "*.apk"
+
+        # 遍历签名
+        SIGNED_COUNT=0
+        for apk in $(find . -type f -path "*/outputs/apk/release/*.apk" ! -name "*-signed.apk"); do
+          echo "Signing $apk ..."
+          
+          # 执行签名
+          $APKSIGNER sign \
+            --ks release.keystore \
+            --ks-key-alias "$ALIAS" \
+            --ks-pass env:KEYSTORE_PASS \
+            --key-pass env:KEY_PASS \
+            --out "${apk%.apk}-signed.apk" \
+            "$apk"
+          
+          # 验证签名结果
+          if [ $? -eq 0 ]; then
+            echo "✅ 成功生成: ${apk%.apk}-signed.apk"
+            SIGNED_COUNT=$((SIGNED_COUNT+1))
+          else
+            echo "❌ 签名失败: $apk"
+            exit 1
           fi
         done
 
+        if [ $SIGNED_COUNT -eq 0 ]; then
+          echo "❌ 未找到可签名的 Release APK！"
+          exit 1
+        fi
+
+    # 收集并上传所有已签名的 APK
     - name: Upload Signed APK
       uses: actions/upload-artifact@v4
       with:
         name: signed-apk
-        path: '**/outputs/apk/release/*-signed.apk'
+        path: '**/*-signed.apk'
